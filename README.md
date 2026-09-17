@@ -46,9 +46,6 @@ decentralized-file-integrity/
 ├── pom.xml
 ├── README.md
 ├── statement.md
-├── docs/
-│   ├── ARCHITECTURE.md                  # UML diagrams and system workflows
-│   └── Project_Report_Decentralized_File_Integrity.pdf
 ├── sample-data/                         # Test directory for manual verification
 │   ├── file1.txt
 │   ├── config.properties

@@ -7,6 +7,12 @@ audit.log
 mvn.cmd
 scratch/
 
+# Private docs and environment
+docs/
+.env
+.env.*
+
+
 # IDE files
 .idea/
 *.iml
