@@ -1,61 +1,55 @@
 # Decentralized File Integrity & Tamper Detection System
 
-A Java command-line tool that detects unauthorized modification, deletion,
-or addition of files in a directory using **SHA-256 hashing**, a
-**Merkle (hash) tree**, and a **hash-chained, tamper-evident audit log**.
+A lightweight Java command-line tool that monitors directories for unauthorized file changes, deletions, or new additions. It computes SHA-256 hashes and builds an in-memory **Merkle tree** over your directory structure, allowing instant $O(1)$ checks for whether anything changed, coupled with a **hash-chained audit log** to prevent log tampering.
 
-Built for the VITyarthi "Build Your Own Project" flipped-course assignment.
+---
 
-## Overview
+## Why this project?
 
-Traditional file-integrity checkers either re-hash every file every time
-(slow at scale) or keep a flat list of hashes with no way to prove the
-*set as a whole* hasn't changed. This project builds a **Merkle tree**
-over a directory's file hashes so that:
+Standard file integrity tools usually take one of two approaches:
+1. **Re-hashing every file sequentially:** Slow and resource-heavy on larger directory trees.
+2. **Flat lists of hashes:** Easy to check individual files, but there is no simple way to verify the integrity of the *entire collection* at once or prove that files weren't quietly added or removed.
 
-- A single root-hash comparison answers "has anything changed?" in O(1).
-- If something *has* changed, the tool still walks the per-file records
-  to report exactly which files were modified, deleted, or added.
-- The tool's own audit trail is hash-chained (each log entry embeds the
-  hash of the previous one), so someone tampering with the *log itself*
-  to hide evidence of tampering is also detectable.
+This tool solves both issues by building a Merkle tree over the directory:
+- **Instant $O(1)$ check:** Comparing a single root hash tells you immediately whether the directory is untouched.
+- **Granular diagnosis:** If the root hash changes, the tool diffs the file metadata against the baseline to tell you exactly which files were modified, deleted, or added.
+- **Tamper-evident audit trail:** Every scan writes to an append-only audit log where each entry contains the cryptographic hash of the previous record. If someone edits the log to hide an unauthorized file change, the chain breaks and `audit-check` flags it.
+
+---
 
 ## Features
 
-- **Baseline creation** — recursively scans a directory, computes a
-  SHA-256 hash per file, and builds a Merkle tree whose root hash is
-  saved as the trusted snapshot.
-- **Verification** — re-scans the same directory later and reports:
-  - overall integrity (root hash match/mismatch)
-  - which specific files were **modified**, **deleted**, or **added**
-- **Real-time-style alerts** via the Observer pattern — pluggable
-  `AlertListener`s react to each discrepancy (a console listener is
-  included; email/webhook listeners can be added without touching
-  detection logic).
-- **Tamper-evident audit logging** — every baseline/verify run is
-  recorded in a hash-chained log; `audit-check` independently verifies
-  that log has not itself been altered.
-- **Unit tested** core logic (hashing, Merkle tree construction, tamper
-  detection) using JUnit 5.
+- **Baseline Snapshots:** Recursively scans a folder, hashes every file, builds a Merkle tree, and saves the root hash and metadata into `integrity-baseline.dat`.
+- **Integrity Verification:** Scans the folder again, compares live hashes against the saved baseline, and reports:
+  - Overall status (`INTACT` vs `TAMPERING DETECTED`)
+  - Categorized discrepancies (`modified`, `deleted`, `added`)
+- **Observer-based Alerts:** Uses the Observer pattern (`AlertService` and `AlertListener`) to publish real-time alerts. A console listener is included, and additional listeners (e.g., email or webhooks) can be plugged in without changing detection code.
+- **Hash-Chained Audit Logging:** Tracks all baseline and verification events in `audit.log`. Each record links to the previous one via SHA-256.
+- **Audit Verification:** An independent `audit-check` command verifies the integrity of the audit trail from the genesis record forward.
+- **Unit Tested:** Includes unit test suites covering cryptographic hashing, Merkle tree construction, and tamper detection logic.
 
-## Technologies / Tools Used
+---
 
-- Java 17
-- Maven (build & dependency management)
-- JUnit 5 (unit testing)
-- `java.security.MessageDigest` (SHA-256)
-- Mermaid diagrams (architecture & UML docs, render on GitHub)
+## Tech Stack
 
-## Project Structure
+- **Language:** Java 17
+- **Build Tool:** Apache Maven
+- **Testing:** JUnit 5
+- **Cryptography:** `java.security.MessageDigest` (SHA-256)
 
-```
+---
+
+## Project Layout
+
+```text
 decentralized-file-integrity/
 ├── pom.xml
 ├── README.md
 ├── statement.md
 ├── docs/
-│   └── ARCHITECTURE.md         # System architecture, use case, class, sequence diagrams
-├── sample-data/                # Sample directory to try the tool on
+│   ├── ARCHITECTURE.md                  # UML diagrams and system workflows
+│   └── Project_Report_Decentralized_File_Integrity.pdf
+├── sample-data/                         # Test directory for manual verification
 │   ├── file1.txt
 │   ├── config.properties
 │   ├── script.py
@@ -64,19 +58,19 @@ decentralized-file-integrity/
 │       └── data.json
 └── src/
     ├── main/java/com/integrity/
-    │   ├── Main.java                       # CLI entry point
-    │   ├── crypto/FileHasher.java          # SHA-256 hashing utility
-    │   ├── model/FileRecord.java           # Per-file metadata + hash
-    │   ├── model/IntegrityBaseline.java    # Snapshot persistence
-    │   ├── merkle/MerkleNode.java          # Tree node
-    │   ├── merkle/MerkleTree.java          # Tree construction & root hash
-    │   ├── scanner/FileScanner.java        # Directory walking
-    │   ├── detector/TamperDetector.java    # Baseline vs. current comparison
-    │   ├── audit/AuditLogger.java          # Hash-chained audit log
-    │   ├── alert/AlertEvent.java           # Alert data model
-    │   ├── alert/AlertListener.java        # Observer interface
-    │   ├── alert/ConsoleAlertListener.java # Console observer
-    │   ├── alert/AlertService.java         # Observer subject/dispatcher
+    │   ├── Main.java                    # CLI entry point
+    │   ├── crypto/FileHasher.java       # Buffered SHA-256 hashing utility
+    │   ├── model/FileRecord.java        # Per-file metadata and hash representation
+    │   ├── model/IntegrityBaseline.java # Baseline persistence and loading
+    │   ├── merkle/MerkleNode.java       # Binary tree node
+    │   ├── merkle/MerkleTree.java       # Bottom-up tree construction and root hash
+    │   ├── scanner/FileScanner.java     # Recursive directory scanner
+    │   ├── detector/TamperDetector.java # Baseline vs live scan comparison
+    │   ├── audit/AuditLogger.java       # Hash-chained audit logger and validator
+    │   ├── alert/AlertEvent.java        # Alert event model
+    │   ├── alert/AlertListener.java     # Observer interface
+    │   ├── alert/ConsoleAlertListener.java # Console alert output
+    │   ├── alert/AlertService.java      # Observer event dispatcher
     │   └── exception/IntegrityException.java
     └── test/java/com/integrity/
         ├── crypto/FileHasherTest.java
@@ -84,101 +78,117 @@ decentralized-file-integrity/
         └── detector/TamperDetectorTest.java
 ```
 
-That's **13 main classes + 3 test classes across 8 packages** — comfortably
-within the assignment's 5–10 meaningful modules/files requirement, organized
-by responsibility rather than dumped in one package.
+---
 
-## Steps to Install & Run
+## Setup & Usage
 
 ### Prerequisites
-- JDK 17 or later
-- Maven 3.6+
+- JDK 17 or higher
+- Maven 3.6+ (or use the included `mvn.cmd` on Windows)
 
 ### Build
+Clone the repository and package the runnable JAR:
+
 ```bash
-git clone <your-repo-url>
-cd decentralized-file-integrity
 mvn clean package
 ```
-This produces a runnable JAR at `target/file-integrity.jar`.
+*(On Windows systems where Maven isn't in your PATH, you can run `.\mvn.cmd clean package`)*
 
-### Run
+This compiles the code, runs the test suite, and outputs an executable JAR at `target/file-integrity.jar`.
 
-**1. Create a baseline (trusted snapshot) of a directory:**
+---
+
+### Commands
+
+#### 1. Create a Baseline
+Creates a trusted snapshot of the target directory:
+
 ```bash
 java -jar target/file-integrity.jar baseline sample-data
 ```
-Output:
-```
+
+Example Output:
+```text
 Scanning sample-data ...
-Baseline saved: /path/to/integrity-baseline.dat
+Baseline saved: E:\...\integrity-baseline.dat
 Files scanned : 5
-Merkle root   : 7a1f3c...
+Merkle root   : 273f0fbc4a71c533d18a1a247376ac21d5cad6fa61f26ed6164628fd0883130e
 ```
 
-**2. Verify the directory later (no changes made):**
+#### 2. Verify Directory Integrity
+Verifies the current directory contents against the saved baseline:
+
 ```bash
 java -jar target/file-integrity.jar verify sample-data
 ```
-```
+
+Example Output (Intact):
+```text
+Re-scanning sample-data ...
+
 RESULT: INTACT ✔
 Verification PASSED - no tampering detected (5 files)
 ```
 
-**3. Simulate tampering and verify again:**
+#### 3. Tamper Detection in Action
+If a file's content is modified:
+
 ```bash
-echo "malicious edit" >> sample-data/file1.txt
+echo "tampered content" >> sample-data/file1.txt
 java -jar target/file-integrity.jar verify sample-data
 ```
-```
-[MODIFIED] Content changed: file1.txt (expected 9f2ab1c3d4..., found e0771a9f22...)
-[ALERT]    Merkle root hash mismatch! Expected 7a1f3c... but computed 4b8e91...
+
+Example Output:
+```text
+Re-scanning sample-data ...
+[MODIFIED] Content changed: file1.txt (expected 8fbe5f78c8..., found e9b12a84ef...)
+[ALERT]    Merkle root hash mismatch! Expected 273f0fbc... but computed 94a1b023...
 
 RESULT: TAMPERING DETECTED ✘
 Verification FAILED - 1 discrepancies found (modified=1, deleted=0, added=0)
 ```
 
-**4. Check that the audit log itself hasn't been tampered with:**
+#### 4. Verify Audit Log Integrity
+Validates that the `audit.log` file itself has not been altered:
+
 ```bash
 java -jar target/file-integrity.jar audit-check
 ```
-```
+
+Example Output:
+```text
 Audit log chain is INTACT - no entries have been altered.
 ```
 
-## Instructions for Testing
+---
 
-Run the full unit test suite (hashing, Merkle tree, tamper detection):
+## Running Unit Tests
+
+Run the full test suite via Maven:
+
 ```bash
 mvn test
 ```
+*(or `.\mvn.cmd test`)*
 
-Test coverage includes:
-- Hash determinism and sensitivity to content changes (`FileHasherTest`)
-- Merkle root stability under reordering, and change-detection on
-  modification (`MerkleTreeTest`)
-- Correct classification of modified/deleted/added files and alert
-  publishing (`TamperDetectorTest`)
+The test suites validate:
+- **`FileHasherTest`:** Hash determinism, sensitivity to single-byte modifications, and empty file handling.
+- **`MerkleTreeTest`:** Tree construction, root stability under different file orders, and odd-leaf balancing.
+- **`TamperDetectorTest`:** Identification of modified, deleted, and newly added files, as well as alert dispatching.
 
-## Non-Functional Requirements Addressed
+---
 
-| Requirement | How it's addressed |
-|---|---|
-| **Security** | SHA-256 content hashing; hash-chained audit log resists silent log tampering |
-| **Reliability** | Domain-specific `IntegrityException` wraps all I/O/hashing failures; graceful CLI error messages instead of stack traces |
-| **Performance** | Streamed (buffered) file hashing avoids loading whole files into memory; Merkle root gives O(1) "did anything change" checks |
-| **Scalability** | Works over arbitrarily nested directories; Merkle structure scales to large file sets without re-hashing everything on every check |
-| **Maintainability** | Clear package-per-responsibility layout; Observer pattern (`AlertService`/`AlertListener`) allows new alert channels without touching detection logic |
-| **Usability** | Simple three-command CLI; human-readable baseline file format |
-| **Logging/Monitoring** | Every baseline/verify run is permanently recorded in `audit.log` |
+## Key Design Considerations
 
-## Screenshots
+- **Memory Efficiency:** File hashing runs through an 8 KB buffer stream (`InputStream`) instead of reading whole files into memory, keeping memory usage constant regardless of file size.
+- **Deterministic Hashing:** Paths are normalized across operating systems (Unix `/` separators) and sorted alphabetically before tree construction so results remain consistent across different machines.
+- **Graceful Error Handling:** Custom `IntegrityException` wrappers capture I/O and algorithm failures cleanly without dumping raw JVM stack traces into the terminal.
+- **Decoupled Architecture:** Using the Observer pattern for alerts keeps detection logic independent of where alerts are displayed or sent.
 
-_(Add terminal screenshots of `baseline`, `verify`, and `audit-check` runs here before submission.)_
+---
 
-## Future Enhancements
+## Future Improvements
 
-- Add a `--watch` mode that polls a directory continuously instead of one-shot verification
-- Merkle proof generation so a single file's integrity can be verified without holding the whole tree
-- Pluggable alert channels: email (SMTP) and webhook listeners
-- Web dashboard (Spring Boot) visualizing the Merkle tree and audit history
+- Add a real-time `--watch` mode using Java's `WatchService` for continuous directory monitoring.
+- Support generating Merkle proofs to verify single files independently without needing the full tree.
+- Add external alert notification channels (SMTP email and webhook notifications).

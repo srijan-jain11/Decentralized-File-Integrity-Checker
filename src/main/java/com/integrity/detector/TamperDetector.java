@@ -62,8 +62,8 @@ public class TamperDetector {
                         AlertEvent.Type.FILE_MODIFIED,
                         baselineRecord.getRelativePath(),
                         "Content changed: " + baselineRecord.getRelativePath()
-                                + " (expected " + baselineRecord.getSha256Hash().substring(0, 10)
-                                + "..., found " + currentRecord.getSha256Hash().substring(0, 10) + "...)"));
+                                + " (expected " + shortHash(baselineRecord.getSha256Hash())
+                                + ", found " + shortHash(currentRecord.getSha256Hash()) + ")"));
             }
         }
 
@@ -95,6 +95,11 @@ public class TamperDetector {
             map.put(r.getRelativePath(), r);
         }
         return map;
+    }
+
+    private static String shortHash(String hash) {
+        if (hash == null) return "null";
+        return hash.length() > 10 ? hash.substring(0, 10) + "..." : hash;
     }
 
     /** Immutable summary of one detection run. */

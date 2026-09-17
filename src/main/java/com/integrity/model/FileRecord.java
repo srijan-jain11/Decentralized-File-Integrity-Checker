@@ -82,6 +82,9 @@ public final class FileRecord implements Serializable, Comparable<FileRecord> {
 
     @Override
     public String toString() {
-        return relativePath + " (" + sizeBytes + " bytes, hash=" + sha256Hash.substring(0, 10) + "...)";
+        String hashDisplay = sha256Hash != null && sha256Hash.length() > 10
+                ? sha256Hash.substring(0, 10) + "..."
+                : String.valueOf(sha256Hash);
+        return relativePath + " (" + sizeBytes + " bytes, hash=" + hashDisplay + ")";
     }
 }

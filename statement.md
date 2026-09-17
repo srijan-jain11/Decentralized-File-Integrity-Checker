@@ -1,65 +1,48 @@
-# Problem Statement
+# Project Statement
 
 ## Problem Statement
 
-Organizations and individuals frequently need to know whether a set of
-critical files — configuration files, legal documents, source code,
-compliance records — has been altered, deleted, or tampered with,
-whether by malicious actors, accidental edits, or software bugs.
-Simple checksum tools tell you *that* a single file changed, but they
-don't scale efficiently to large directories, and they offer no
-protection against someone editing the *log* that recorded past
-integrity checks to cover their tracks.
+Developers and system administrators frequently need a dependable way to verify that a set of critical files—such as application configs, source code, deployment scripts, or audit records—has not been tampered with or modified.
 
-This project builds a lightweight, dependency-free Java tool that:
+Traditional checksum utilities typically check individual files one by one. This approach does not scale well over large directories, does not provide a single proof of integrity for the entire directory tree, and provides no protection if an intruder modifies the log file itself to erase evidence of changes.
 
-1. Fingerprints an entire directory tree using SHA-256 hashes combined
-   into a **Merkle tree**, producing a single root hash that changes if
-   *any* file in the tree changes.
-2. Detects and classifies exactly what changed (modified / deleted /
-   added files) when the root hash no longer matches a saved baseline.
-3. Records every check in a **hash-chained audit log**, so tampering
-   with the audit trail itself is also detectable.
+This project implements a lightweight Java CLI utility that:
+1. Generates a cryptographic fingerprint of an entire directory structure using SHA-256 and a **Merkle tree**, yielding a single root hash that changes if any file in the tree is altered.
+2. Identifies and categorizes discrepancies (modified, added, or deleted files) when the root hash diverges from a saved baseline.
+3. Records all verification activity into a **hash-chained audit log**, making unauthorized modifications to the audit log itself detectable.
+
+---
 
 ## Scope of the Project
 
-**In scope:**
-- Recursive directory scanning and SHA-256 file hashing
-- Merkle tree construction and root-hash comparison
-- Per-file diff (modified / deleted / added) against a saved baseline
-- Observer-pattern alerting to the console
-- Hash-chained, append-only audit logging with independent chain
-  verification
-- Command-line interface (`baseline`, `verify`, `audit-check`)
-- Unit tests for the hashing, Merkle tree, and detection logic
+**In Scope:**
+- Recursive directory scanning with streaming SHA-256 hashing
+- In-memory Merkle tree construction and root hash comparison
+- Detailed file diffing (identifying modified, deleted, and newly added files)
+- Decoupled real-time alert notifications using the Observer pattern
+- Append-only, hash-chained audit logging with independent integrity checking
+- Clean command-line interface (`baseline`, `verify`, `audit-check`)
+- Unit test coverage for core hashing, tree, and detection components
 
-**Out of scope (see Future Enhancements in README):**
-- Continuous/real-time filesystem watching (this is a point-in-time,
-  on-demand tool)
-- Distributed/multi-node deployment (despite the "decentralized" name
-  referring to the tamper-evident *data structure*, not a networked
-  system)
-- GUI or web dashboard
-- Encryption/backup of the files themselves (this tool detects
-  tampering; it does not prevent or reverse it)
+**Out of Scope:**
+- Real-time continuous filesystem polling (designed for point-in-time, on-demand verification)
+- Multi-node network synchronization (focuses on local directory integrity and cryptographic verification)
+- Graphical user interface (GUI) or web dashboard
+- File backup and encryption (focuses on detection and auditing rather than file recovery)
+
+---
 
 ## Target Users
 
-- Students/developers who want to verify a project folder or codebase
-  hasn't been altered between milestones
-- System administrators monitoring configuration directories for
-  unauthorized changes
-- Anyone needing a simple, auditable "has this folder changed since
-  I last checked?" tool without standing up external infrastructure
+- **Developers:** Verifying code repositories and builds between release milestones without external infrastructure.
+- **System Administrators:** Checking critical configuration directories and sensitive server paths for unauthorized changes.
+- **Auditors / Security Enthusiasts:** Ensuring logs and files remain provably unchanged over time.
+
+---
 
 ## High-Level Features
 
-1. **Baseline creation** — snapshot a directory's Merkle root hash and
-   per-file metadata as the trusted reference point.
-2. **Verification** — re-scan and compare against the baseline,
-   reporting overall integrity plus a detailed per-file diff.
-3. **Audit trail** — every baseline/verify operation is permanently,
-   verifiably logged via a hash chain.
-4. **Extensible alerting** — new alert delivery channels (email,
-   webhook, file) can be added by implementing one interface, without
-   modifying detection logic.
+1. **Baseline Generation:** Creates a trusted snapshot containing per-file metadata, hashes, and the Merkle root hash.
+2. **Verification & Localization:** Compares current directory state against the baseline, validating overall integrity in $O(1)$ time and reporting exact file discrepancies when changes exist.
+3. **Tamper-Evident Audit Trail:** Chained SHA-256 log entries ensure historical verification records cannot be modified unnoticed.
+4. **Pluggable Alerts:** Uses an Observer architecture so new alert destinations can be added easily without touching core detection code.
